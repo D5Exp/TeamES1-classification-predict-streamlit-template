@@ -29,13 +29,9 @@ import os
 # Data dependencies
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
-# Vectorizer
-tweets_vectorizer = open("resources/cv_vect_2.pkl", "rb")
-# loading your vectorizer from the pkl file
-tweet_cv = joblib.load(tweets_vectorizer)
 
-# Load your raw data
 raw = pd.read_csv("resources/train.csv")
 
 # ---------------- FUNCTION FOR PRE-PROCESSING TEXT ------------
@@ -107,29 +103,14 @@ def main():
 
     # Creates a main title and subheader on your page -
     # these are static across all pages
+    st.set_page_config(page_title="Tweet Sentiment app")
     st.title("Tweet Sentiment Classifier")
     st.subheader("Climate change tweet classification")
-
-    app_background_image = """
-    <style>
-        body {
-            background-image: 
-                url("https://images.pexels.com/photos/158827/field-corn-air-frisch-158827.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1");
-            background-size: cover;
-            background-repeat: no-repeat;
-        }
-    </style>
-    """
-
-    st.markdown(
-        app_background_image,
-        unsafe_allow_html=True
-    )
 
 
     # Creating sidebar with selection box -
     # you can create multiple pages this way
-    options = ["Prediction","Problem Statement", "Dataset", ]
+    options = ["Home","New Predictions", "Dataset",]
     selection = st.sidebar.selectbox("Choose Option", options)
 
     # Building out the "Information" page
@@ -151,34 +132,44 @@ def main():
             # will write the df to the page
             st.write(raw[['sentiment', 'message']])
 
-    if selection == "Problem Statement":
-        st.write("""
-        ![Climate Change Image](https://github.com/RimanaSifiso/public-data-for-ml-tutorials/blob/main/edsa/classification_exam/bg-small.jpg?raw=true)
+    if selection == "Home":
+        st.write(
+            """
+            ## Do you have to care about what your customers say?
 
-        ## Defining Cimate Change
-        According to [United Nations](https://www.un.org/en/climatechange/what-is-climate-change), 
-        climate change is a long-term shift in temperatures and weather patterns, and may be of natural 
-        cause or man-made.
-        
-        ## Why does this matter?
+            Studies show that `82%` of customers want a brand's values that aligns align with their own.
+
+            When it comes to product production and the environment, looking at whether people care about climate change or not
+            is as crucially important as your product success. According to the data used in our study, almost more than half of the population perceive climate change as a human impact.
+            """
+        )
 
 
-        Recently, companies have been transforming their production methods in an effort to produce environmentally 
-        friendly products. According to [National News Article](https://www.thenationalnews.com/business/technology/2022/06/23/25-of-top-tech-companies-set-to-achieve-carbon-neutrality-by-2030-report-says/), 
-        `25%` of top tech companies are set to achieve carbon neutrality by 2030.
+        pie_data = raw['sentiment'].map({2: 'News', 1: 'Pro', 0: 'Neutral', -1: 'Anti'}
+                                        ).value_counts()
 
-        Interestingly, people tend to buy products from companies that align with their values and beliefs. 
-        According to [Giusy Bounfantino's article](https://consumergoods.com/new-research-shows-consumers-more-interested-brands-values-ever#:~:text=Shoppers%20want%20to%20buy%20from%20brands%20aligned%20with%20their%20values&text=The%20new%20research%20tells%20us,over%20a%20conflict%20in%20values.) 
-        on Consumer Goods Technology, `82%` of shoppers want a consumer brand’s values to align with their own.
+        fig, ax = plt.subplots()
 
-        Since companies are now producing environmentally friendly products, they want to know what the general public 
-        thinks about climate change, as that is likey to determine how their products will be received by the public. 
-        A person who believes climate change is a real threat is more likely to buy environmentally friendly products, 
-        or buy from a company that has the same belief.
-        """)
+        ax.pie(x=pie_data, autopct='%.2f%%', labels=pie_data.index)
+
+        plt.title("Tweets Sentiments by Count")
+        plt.ylabel("")
+
+        st.pyplot(fig)
+
+        st.write(
+            """
+            ## The Problem we solved
+
+            To analyze customr sentiments about cilmate change, you'll need large amounts of data, and analyzing large amounts of data is time and cost consuming, our app allows use you to skip that tedious task.
+
+            Simply collect customer data and use "New Predictions" analyze the results in your dataset, with just a click!
+            """
+        )
+
 
     # Building out the predication page
-    if selection == "Prediction":
+    if selection == "New Predictions":
         st.info("""
         Sometimes it’s hard to tell whether a tweet is pro, anti, neutral, or news about 
         climate change, or it could be that the tweet is long to read to classify it manually. 
@@ -189,20 +180,36 @@ def main():
         # Creating a text box for user input
         tweet_text = st.text_area("Enter tweet to classify", "Type Here...")
 
-    
+        predictor = None 
+        tweets_vectorizer = None
+
+        # allow the use to choose the model for prediction
+        model = st.radio(
+            "Choose a model to use for predictions",
+            ("Logistic Regression", "Desision Tree")
+        )
+
+        if model == "Logistic Regression":
+            tweets_vectorizer = open("resources/cv_vect_2.pkl", "rb")
+            tweet_cv = joblib.load(tweets_vectorizer)
+            predictor = joblib.load(
+                open(os.path.join("resources/lr_model.pkl"), "rb"))
+        else:
+            tweets_vectorizer = open("resources/cv_vect.pkl", "rb")
+            tweet_cv = joblib.load(tweets_vectorizer)
+            predictor = joblib.load(
+                open(os.path.join("resources/dtc_model.pkl"), "rb"))
 
         if st.button("Classify"):
             # Transforming user input with vectorizer
             tweet_text = nlp_preprocess(tweet_text)
             vect_text = tweet_cv.transform([tweet_text]).toarray()
-            # Load your .pkl file with the model of your choice + make predictions
-            # Try loading in multiple models to give the user a choice
-            predictor = joblib.load(
-                open(os.path.join("resources/lr_model.pkl"), "rb"))
+            
             prediction = predictor.predict(vect_text)
 
             output = ''
 
+            # generilize output to be more user friendly
             if prediction == 2:
                 output = "Climate change factual news"
             elif prediction == 1:
